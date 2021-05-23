@@ -20,27 +20,28 @@ namespace LibreHardwareMonitor.Hardware.Storage
                 return;
 
             //https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32-diskdrive
-            string query = "SELECT * FROM Win32_DiskDrive";
-            using (var mosDisks = new ManagementObjectSearcher(query) {Options = {Timeout = TimeSpan.FromSeconds(10)}})
-            using (ManagementObjectCollection queryCollection = mosDisks.Get())
-            {
-                foreach (ManagementBaseObject disk in queryCollection)
-                {
-                    string deviceId = (string)disk.Properties["DeviceId"].Value; // is \\.\PhysicalDrive0..n
-                    uint idx = Convert.ToUInt32(disk.Properties["Index"].Value);
-                    ulong diskSize = Convert.ToUInt64(disk.Properties["Size"].Value);
-                    int scsi = Convert.ToInt32(disk.Properties["SCSIPort"].Value);
+            var mosDisks = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
+            ManagementObjectCollection queryCollection = mosDisks.Get(); // get the results
 
-                    if (deviceId != null)
+            foreach (ManagementBaseObject disk in queryCollection)
+            {
+                string deviceId = (string)disk.Properties["DeviceId"].Value; // is \\.\PhysicalDrive0..n
+                uint idx = Convert.ToUInt32(disk.Properties["Index"].Value);
+                ulong diskSize = Convert.ToUInt64(disk.Properties["Size"].Value);
+                int scsi = Convert.ToInt32(disk.Properties["SCSIPort"].Value);
+
+                if (deviceId != null)
+                {
+                    var instance = AbstractStorage.CreateInstance(deviceId, idx, diskSize, scsi, settings);
+                    if (instance != null)
                     {
-                        var instance = AbstractStorage.CreateInstance(deviceId, idx, diskSize, scsi, settings);
-                        if (instance != null)
-                        {
-                            _hardware.Add(instance);
-                        }
+                        _hardware.Add(instance);
                     }
                 }
             }
+
+            queryCollection.Dispose();
+            mosDisks.Dispose();
         }
 
         public IReadOnlyList<IHardware> Hardware => _hardware;
